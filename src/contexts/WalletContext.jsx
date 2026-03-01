@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import fcl from '../flow/fclConfig'
 
 const WalletContext = createContext()
@@ -11,11 +11,16 @@ export function WalletProvider({ children }) {
     return () => unsubscribe()
   }, [])
 
-  const login = () => fcl.authenticate()
-  const logout = () => fcl.unauthenticate()
+  const login = useCallback(() => fcl.authenticate(), [])
+  const logout = useCallback(() => fcl.unauthenticate(), [])
+
+  const value = useMemo(
+    () => ({ user, login, logout }),
+    [user, login, logout]
+  )
 
   return (
-    <WalletContext.Provider value={{ user, login, logout }}>
+    <WalletContext.Provider value={value}>
       {children}
     </WalletContext.Provider>
   )
