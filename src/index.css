@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+/* FlowPay: black & white theme */
+:root {
+  --flowpay-bg: #000000;
+  --flowpay-fg: #ffffff;
+  --flowpay-muted: rgba(255, 255, 255, 0.6);
+  --flowpay-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: var(--flowpay-bg);
+  color: var(--flowpay-fg);
+}
+
+#root {
+  min-height: 100vh;
+}

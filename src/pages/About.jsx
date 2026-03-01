@@ -1,25 +1,28 @@
+import { Card } from '@/components/molecules'
+
 export default function About() {
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">About FlowPay</h1>
-      <p className="text-gray-700">FlowPay is a demo payments UI built on the Flow blockchain. It demonstrates wallet connection, basic account UI, and routing in a React + Vite app.</p>
+      <h1 className="text-3xl font-bold text-white">About FlowPay</h1>
+      <p className="text-white/80 leading-relaxed">
+        FlowPay is a subscription payments app on the Flow blockchain. Create subscriptions, add recipient wallet addresses, and let auto-payments run when each period ends. It demonstrates wallet connection (FCL), routing, and a clean black-and-white UI.
+      </p>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="font-semibold">Fast</h3>
-          <p className="text-sm text-gray-600">Optimized for quick micro-payments on Flow.</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="font-semibold">Secure</h3>
-          <p className="text-sm text-gray-600">Wallet-based authentication keeps private keys on the client.</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="font-semibold">Open</h3>
-          <p className="text-sm text-gray-600">Built with open Flow tooling and FCL for interoperability.</p>
-        </div>
+        <Card title="Fast" size="compact">
+          <p className="text-sm text-white/60">Optimized for quick micro-payments on Flow.</p>
+        </Card>
+        <Card title="Secure" size="compact">
+          <p className="text-sm text-white/60">Wallet-based auth keeps private keys on the client.</p>
+        </Card>
+        <Card title="Open" size="compact">
+          <p className="text-sm text-white/60">Built with FCL and Flow tooling for interoperability.</p>
+        </Card>
       </div>
 
-      <p className="text-sm text-gray-600">This project is intended as a starting point — extend it with real transaction flows, balance queries, and richer UX.</p>
+      <p className="text-sm text-white/50">
+        Extend with real transaction flows, balance queries, and scheduled payouts.
+      </p>
     </div>
   )
 }
