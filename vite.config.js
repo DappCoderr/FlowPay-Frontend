@@ -8,4 +8,17 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor'
+          if (id.includes('node_modules/@onflow/')) return 'fcl'
+          if (id.includes('node_modules/react-router')) return 'router'
+          if (id.includes('node_modules/lucide-react')) return 'lucide'
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })
