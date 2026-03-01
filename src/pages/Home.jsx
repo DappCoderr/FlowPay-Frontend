@@ -1,18 +1,117 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWallet } from '@/contexts/WalletContext'
 import { shortAddress } from '@/utils/format'
 import { Button } from '@/components/atoms'
 import { Card } from '@/components/molecules'
 import { CreateSubscriptionModal } from '@/components/organisms'
 import { Plus } from 'lucide-react'
+import {
+  getAllSchedulesForUser,
+  getFlowPayStats,
+  pauseFlowPaySchedule,
+  resumeFlowPaySchedule,
+  cancelFlowPaySchedule,
+  topUpFlowPaySchedule,
+} from '@/flow/flowpay'
 
 export default function Home() {
-  const { user } = useWallet()
+  const { user, isSettingUp, setupError } = useWallet()
   const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [subscriptions, setSubscriptions] = useState([])
+  const [schedules, setSchedules] = useState([])
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [txStatus, setTxStatus] = useState(null)
+  const address = user?.addr
 
-  const handleCreateSubscription = useCallback((payload) => {
-    setSubscriptions((prev) => [...prev, { id: Date.now(), ...payload }])
+  const loadData = useCallback(async () => {
+    if (!address) return
+    setLoading(true)
+    try {
+      const [allSchedules, contractStats] = await Promise.all([
+        getAllSchedulesForUser(address),
+        getFlowPayStats(),
+      ])
+      setSchedules(allSchedules ?? [])
+      setStats(contractStats ?? null)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load FlowPay data', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [address])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleCreateSubscription = useCallback(() => {
+    // The modal will handle submitting the transaction via FCL.
+    // After it closes, reload on-chain data.
+    loadData()
+  }, [loadData])
+
+  const handlePause = useCallback(
+    async (id) => {
+      setTxStatus('Pausing schedule...')
+      try {
+        await pauseFlowPaySchedule(id)
+        await loadData()
+      } finally {
+        setTxStatus(null)
+      }
+    },
+    [loadData]
+  )
+
+  const handleResume = useCallback(
+    async (id) => {
+      setTxStatus('Resuming schedule...')
+      try {
+        await resumeFlowPaySchedule(id)
+        await loadData()
+      } finally {
+        setTxStatus(null)
+      }
+    },
+    [loadData]
+  )
+
+  const handleCancel = useCallback(
+    async (id) => {
+      setTxStatus('Cancelling schedule...')
+      try {
+        await cancelFlowPaySchedule(id)
+        await loadData()
+      } finally {
+        setTxStatus(null)
+      }
+    },
+    [loadData]
+  )
+
+  const handleTopUp = useCallback(
+    async (id) => {
+      const amount = window.prompt('Enter top-up amount (UFix64, e.g. 10.0)')
+      if (!amount) return
+      setTxStatus('Topping up schedule...')
+      try {
+        // Pass string like '10.0' directly; helper expects UFix64 literal.
+        await topUpFlowPaySchedule(id, amount)
+        await loadData()
+      } finally {
+        setTxStatus(null)
+      }
+    },
+    [loadData]
+  )
+
+  const hasSchedules = (schedules ?? []).length > 0
+
+  const statusLabel = useCallback((status) => {
+    // FlowPay.Status values map to UInt8; scripts return a rich struct
+    if (typeof status === 'string') return status
+    return String(status)
   }, [])
 
   const openCreateModal = useCallback(() => setCreateModalOpen(true), [])
@@ -30,9 +129,10 @@ export default function Home() {
             variant="primary"
             className="text-sm px-4 py-2"
             onClick={openCreateModal}
+            disabled={!address || isSettingUp}
           >
             <Plus className="w-4 h-4" />
-            Create subscription
+            {isSettingUp ? 'Setting up FlowPay…' : 'Create subscription'}
           </Button>
         </div>
       </div>
@@ -41,8 +141,13 @@ export default function Home() {
         <Card title="Account">
           <p className="text-sm text-white/70 font-mono break-all">{user?.addr ?? '—'}</p>
         </Card>
-        <Card title="Balance">
-          <p className="text-sm text-white/70">Testnet balance: — FLOW</p>
+        <Card title="Flows & stats">
+          <p className="text-sm text-white/70">
+            Total schedules: {stats?.totalSchedulesCreated ?? '—'}
+          </p>
+          <p className="text-sm text-white/70">
+            Total payouts executed: {stats?.totalPayoutsExecuted ?? '—'}
+          </p>
         </Card>
         <Card title="Quick Actions">
           <div className="flex gap-2">
@@ -52,29 +157,74 @@ export default function Home() {
         </Card>
       </div>
 
+      {setupError && (
+        <Card title="Setup error">
+          <p className="text-sm text-red-400">
+            FlowPay account setup failed: {setupError}. You may need a FlowToken vault and storage
+            before using FlowPay.
+          </p>
+        </Card>
+      )}
+
       <Card title="Your subscriptions">
-        {subscriptions.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-white/60">Loading schedules from chain…</p>
+        ) : !hasSchedules ? (
           <p className="text-sm text-white/60">
-            No subscriptions yet. Create one to schedule payments to multiple addresses with equal or percentage-based distribution.
+            No on-chain subscriptions yet. Create one to schedule recurring payouts.
           </p>
         ) : (
           <ul className="space-y-3">
-            {subscriptions.map((sub) => (
+            {schedules.map((sub) => (
               <li
                 key={sub.id}
                 className="p-3 rounded-lg border border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-2"
               >
-                <div>
+                <div className="space-y-1">
                   <span className="font-medium text-white">
-                    {sub.name || `Subscription #${sub.id}`}
+                    {sub.label || `Schedule #${sub.id}`}
                   </span>
                   <span className="text-white/60 ml-2">
-                    {sub.amount} {sub.currency} · {sub.recipients?.length} recipient(s)
+                    {sub.totalPerPayout ?? sub.amountPerPayout} FLOW total per payout ·{' '}
+                    {(sub.recipients ?? []).length || 1} recipient(s) ·{' '}
+                    {sub.completedPayouts}/{sub.totalPayouts} payouts
                   </span>
                 </div>
-                <span className="text-xs text-white/50">
-                  {sub.recurrence === 'once' ? 'Once' : sub.recurrence} · {sub.scheduledAt}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-xs text-white/50">
+                    Status: {statusLabel(sub.status)} · Next at {sub.nextPayoutTime}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1 text-xs"
+                      onClick={() => handlePause(sub.id)}
+                    >
+                      Pause
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1 text-xs"
+                      onClick={() => handleResume(sub.id)}
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1 text-xs"
+                      onClick={() => handleTopUp(sub.id)}
+                    >
+                      Top up
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1 text-xs text-red-400"
+                      onClick={() => handleCancel(sub.id)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
@@ -83,7 +233,7 @@ export default function Home() {
 
       <Card title="Recent Activity">
         <p className="text-sm text-white/60">
-          No activity yet — try connecting and performing transactions on Flow testnet.
+          {txStatus || 'No activity yet — create or manage a subscription to see updates.'}
         </p>
       </Card>
 

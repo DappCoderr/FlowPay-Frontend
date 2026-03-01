@@ -2,6 +2,7 @@ import { useState, useCallback, memo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/molecules'
 import { Button, Input, Select } from '@/components/atoms'
+import { createFlowPaySchedule } from '@/flow/flowpay'
 
 const CURRENCIES = [{ value: 'FLOW', label: 'FLOW' }]
 const DISTRIBUTION_TYPES = [
@@ -139,24 +140,60 @@ export function CreateSubscriptionModal({ open, onClose, onCreate }) {
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!isValid()) return
-    const payload = {
-      name: name || undefined,
-      amount: Number(amount),
-      currency,
-      recipients: recipients.map((r) => ({
-        address: r.address.trim(),
-        shareType: r.shareType,
-        percentage: r.shareType === 'percentage' ? Number(r.percentage) : null,
-      })),
-      scheduledAt: `${scheduledDate}T${scheduledTime}:00`,
-      recurrence,
+
+    const primaryRecipients = recipients.filter((r) => r.address.trim())
+    const total = Number(amount)
+
+    // Compute amount per recipient: equal split or percentage of total
+    const recipientsWithAmounts = primaryRecipients.map((r) => {
+      let amt
+      if (r.shareType === 'percentage' && r.percentage != null) {
+        amt = (total * Number(r.percentage)) / 100
+      } else {
+        amt = total / primaryRecipients.length
+      }
+      return { address: r.address.trim(), amount: amt }
+    })
+
+    if (recipientsWithAmounts.length === 0) return
+
+    // Derive delayFirstPayout from selected date/time relative to now
+    const now = new Date()
+    const target = new Date(`${scheduledDate}T${scheduledTime}:00Z`)
+    const delaySeconds = Math.max(0, (target.getTime() - now.getTime()) / 1000)
+
+    // Map recurrence to intervalSeconds and totalPayouts
+    let intervalSeconds = '0.0'
+    let totalPayouts = 1
+    if (recurrence === 'weekly') {
+      intervalSeconds = '604800.0'
+      totalPayouts = 12
+    } else if (recurrence === 'monthly') {
+      intervalSeconds = '2629800.0'
+      totalPayouts = 12
     }
-    onCreate?.(payload)
-    onClose()
-    resetForm()
+
+    try {
+      await createFlowPaySchedule({
+        recipients: recipientsWithAmounts.map((r) => ({
+          address: r.address,
+          amount: r.amount.toFixed(2),
+        })),
+        intervalSeconds,
+        totalPayouts,
+        label: name || 'FlowPay subscription',
+        delayFirstPayout: delaySeconds.toFixed(2),
+      })
+      onCreate?.()
+      onClose()
+      resetForm()
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to create FlowPay schedule', err)
+    }
   }
 
   const resetForm = () => {
