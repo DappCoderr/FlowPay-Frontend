@@ -1,13 +1,20 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useWallet } from '@/contexts/WalletContext'
 import { shortAddress } from '@/utils/format'
 import { Logo, Button } from '@/components/atoms'
 
 export function Header() {
+  const navigate = useNavigate()
   const { user, login, logout } = useWallet()
   const [mobileOpen, setMobileOpen] = useState(false)
   const isConnected = !!(user?.addr)
+
+  const handleDisconnect = () => {
+    logout()
+    setMobileOpen(false)
+    navigate('/', { replace: true })
+  }
 
   return (
     <header className="bg-black border-b border-white/10">
@@ -41,7 +48,7 @@ export function Header() {
           {isConnected ? (
             <>
               <span className="hidden sm:inline-block text-sm text-white/70">{shortAddress(user.addr)}</span>
-              <Button variant="ghost" onClick={logout}>Disconnect</Button>
+              <Button variant="ghost" onClick={handleDisconnect}>Disconnect</Button>
             </>
           ) : (
             <Button variant="primary" onClick={login} className="text-sm px-3 py-1.5">

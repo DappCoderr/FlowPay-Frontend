@@ -11,6 +11,7 @@
 body {
   background-color: var(--flowpay-bg);
   color: var(--flowpay-fg);
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 #root {
