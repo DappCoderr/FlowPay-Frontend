@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useWallet } from '@/contexts/WalletContext'
 import { shortAddress } from '@/utils/format'
@@ -10,11 +10,11 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isConnected = !!(user?.addr)
 
-  const handleDisconnect = () => {
+  const handleDisconnect = useCallback(() => {
     logout()
     setMobileOpen(false)
     navigate('/', { replace: true })
-  }
+  }, [logout, navigate])
 
   return (
     <header className="bg-black border-b border-white/10">
