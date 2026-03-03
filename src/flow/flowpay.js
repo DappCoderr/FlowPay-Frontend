@@ -290,16 +290,41 @@ const SCRIPT_GET_STATS = `
 
 // --- Public JS helpers -----------------------------------------------------
 
-export async function setupFlowPayAccount() {
-  const txId = await fcl.mutate({
-    cadence: TX_SETUP_FLOWPAY_ACCOUNT,
-    args: () => [],
-    proposer: fcl.currentUser().authorization,
-    payer: fcl.currentUser().authorization,
-    authorizations: [fcl.currentUser().authorization],
-    limit: 9999,
-  })
-  return fcl.tx(txId).onceSealed()
+export async function setupFlowPayAccount(onStatus) {
+  try {
+    onStatus?.('preparing')
+    const txId = await fcl.mutate({
+      cadence: TX_SETUP_FLOWPAY_ACCOUNT,
+      args: () => [],
+      proposer: fcl.currentUser().authorization,
+      payer: fcl.currentUser().authorization,
+      authorizations: [fcl.currentUser().authorization],
+      limit: 9999,
+    })
+
+    onStatus?.('submitting')
+
+    const unsub = fcl.tx(txId).subscribe((tx) => {
+      if (tx?.status === 1) onStatus?.('pending')
+      if (tx?.status === 4) onStatus?.('sealed')
+    })
+
+    const sealed = await fcl.tx(txId).onceSealed()
+    unsub && unsub()
+
+    if (sealed?.errorMessage) {
+      const msg = sealed.errorMessage
+      let friendly = msg
+      if (msg.includes("Could not borrow signer's FlowToken vault")) {
+        friendly = 'Missing FlowToken vault: deposit FLOW and create a vault in your account.'
+      }
+      throw new Error(friendly)
+    }
+
+    return sealed
+  } catch (err) {
+    throw err instanceof Error ? err : new Error(String(err))
+  }
 }
 
 export async function createFlowPaySchedule({
@@ -308,25 +333,56 @@ export async function createFlowPaySchedule({
   totalPayouts,
   label,
   delayFirstPayout,
-}) {
-  const addresses = recipients.map((r) => r.address)
-  const amounts = recipients.map((r) => r.amount)
-  const txId = await fcl.mutate({
-    cadence: TX_CREATE_FLOWPAY_SCHEDULE,
-    args: () => [
-      fcl.arg(addresses, fcl.t.Array(fcl.t.Address)),
-      fcl.arg(amounts, fcl.t.Array(fcl.t.UFix64)),
-      fcl.arg(intervalSeconds, fcl.t.UFix64),
-      fcl.arg(totalPayouts, fcl.t.UInt64),
-      fcl.arg(label, fcl.t.String),
-      fcl.arg(delayFirstPayout, fcl.t.UFix64),
-    ],
-    proposer: fcl.currentUser().authorization,
-    payer: fcl.currentUser().authorization,
-    authorizations: [fcl.currentUser().authorization],
-    limit: 9999,
-  })
-  return fcl.tx(txId).onceSealed()
+}, onStatus) {
+  try {
+    onStatus?.('preparing')
+
+    const addresses = recipients.map((r) => r.address)
+    const amounts = recipients.map((r) => r.amount)
+
+    const txId = await fcl.mutate({
+      cadence: TX_CREATE_FLOWPAY_SCHEDULE,
+      args: () => [
+        fcl.arg(addresses, fcl.t.Array(fcl.t.Address)),
+        fcl.arg(amounts, fcl.t.Array(fcl.t.UFix64)),
+        fcl.arg(intervalSeconds, fcl.t.UFix64),
+        fcl.arg(totalPayouts, fcl.t.UInt64),
+        fcl.arg(label, fcl.t.String),
+        fcl.arg(delayFirstPayout, fcl.t.UFix64),
+      ],
+      proposer: fcl.currentUser().authorization,
+      payer: fcl.currentUser().authorization,
+      authorizations: [fcl.currentUser().authorization],
+      limit: 9999,
+    })
+
+    onStatus?.('submitting')
+
+    const unsub = fcl.tx(txId).subscribe((tx) => {
+      if (tx?.status === 1) onStatus?.('pending')
+      if (tx?.status === 4) onStatus?.('sealed')
+    })
+
+    const sealed = await fcl.tx(txId).onceSealed()
+    unsub && unsub()
+
+    if (sealed?.errorMessage) {
+      const msg = sealed.errorMessage
+      let friendly = msg
+      if (msg.includes('Scheduler estimation failed') || msg.includes('estimation failed')) {
+        friendly = 'Scheduler estimation failed: check scheduled time, fees, and account manager setup.'
+      } else if (msg.includes("Could not borrow signer's FlowToken vault")) {
+        friendly = 'Missing FlowToken vault: deposit FLOW and create a vault in your account.'
+      } else if (msg.includes('ScheduleCollection not found')) {
+        friendly = 'FlowPay collection not found: run account setup first.'
+      }
+      throw new Error(friendly)
+    }
+
+    return sealed
+  } catch (err) {
+    throw err instanceof Error ? err : new Error(String(err))
+  }
 }
 
 export async function pauseFlowPaySchedule(scheduleId) {
