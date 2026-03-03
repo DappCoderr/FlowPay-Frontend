@@ -91,6 +91,8 @@ export function CreateSubscriptionModal({ open, onClose, onCreate }) {
   const [scheduledTime, setScheduledTime] = useState('12:00')
   const [recurrence, setRecurrence] = useState('once')
   const [errors, setErrors] = useState({})
+  const [txLifecycle, setTxLifecycle] = useState(null)
+  const [txError, setTxError] = useState(null)
 
   const addRecipient = useCallback(() => {
     setRecipients((prev) => [
@@ -186,13 +188,34 @@ export function CreateSubscriptionModal({ open, onClose, onCreate }) {
         totalPayouts,
         label: name || 'FlowPay subscription',
         delayFirstPayout: delaySeconds.toFixed(2),
+      }, (status) => {
+        setTxLifecycle(status)
+        if (status === 'submitting') {
+          const optimistic = {
+            id: `pending-${Date.now()}`,
+            label: name || `Subscription (pending)`,
+            totalPerPayout: recipientsWithAmounts.reduce((s, r) => s + r.amount, 0),
+            recipients: recipientsWithAmounts,
+            completedPayouts: 0,
+            totalPayouts,
+            status: 'pending',
+            nextPayoutTime: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+          }
+          try {
+            onCreate?.(optimistic)
+          } catch (e) {
+            // ignore if parent doesn't accept optimistic param
+          }
+        }
       })
-      onCreate?.()
+      setTxError(null)
       onClose()
       resetForm()
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to create FlowPay schedule', err)
+      setTxError(err instanceof Error ? err.message : String(err))
+      setTxLifecycle(null)
     }
   }
 
@@ -217,6 +240,12 @@ export function CreateSubscriptionModal({ open, onClose, onCreate }) {
   return (
     <Modal open={open} onClose={handleClose} title="Create subscription">
       <form onSubmit={handleSubmit} className="space-y-6">
+        {txLifecycle && (
+          <div className="p-3 mb-2 rounded bg-white/5 border border-white/10 text-sm">
+            <strong className="capitalize">Status:</strong> {txLifecycle}
+            {txError && <div className="text-red-400 mt-1">{txError}</div>}
+          </div>
+        )}
         <Input
           label="Subscription name (optional)"
           placeholder="e.g. Team payouts"
@@ -306,12 +335,16 @@ export function CreateSubscriptionModal({ open, onClose, onCreate }) {
           ))}
         </Select>
 
-        <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2">
           <Button type="button" variant="ghost" onClick={handleClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" variant="primary" className="flex-1">
-            Create subscription
+          <Button type="submit" variant="primary" className="flex-1" disabled={!!txLifecycle && txLifecycle !== 'sealed'}>
+            {txLifecycle === 'preparing' && 'Preparing…'}
+            {txLifecycle === 'submitting' && 'Submitting…'}
+            {txLifecycle === 'pending' && 'Pending…'}
+            {!txLifecycle && 'Create subscription'}
+            {txLifecycle === 'sealed' && 'Sealed'}
           </Button>
         </div>
       </form>
