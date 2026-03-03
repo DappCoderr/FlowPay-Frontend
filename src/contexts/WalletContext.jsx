@@ -24,10 +24,23 @@ export function WalletProvider({ children }) {
       setIsSettingUp(true)
       setSetupError(null)
       try {
-        await setupFlowPayAccount()
+        await setupFlowPayAccount((status) => {
+          // Provide richer setup status to UI via setupError for now.
+          if (status === 'preparing') setSetupError('Preparing account setup...')
+          if (status === 'submitting') setSetupError('Submitting setup transaction...')
+          if (status === 'pending') setSetupError('Waiting for setup to be sealed...')
+          if (status === 'sealed') setSetupError(null)
+        })
       } catch (err) {
-        // Surface minimal error; callers can inspect setupError if needed.
-        setSetupError(err instanceof Error ? err.message : String(err))
+        // Surface friendly error messages for common wallet issues.
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('Missing FlowToken vault')) {
+          setSetupError(
+            'Account setup failed: missing FlowToken vault. Please deposit FLOW and create a vault.'
+          )
+        } else {
+          setSetupError(message)
+        }
       } finally {
         setIsSettingUp(false)
       }
