@@ -47,8 +47,14 @@ export default function Home() {
 
   const handleCreateSubscription = useCallback(() => {
     // The modal will handle submitting the transaction via FCL.
-    // After it closes, reload on-chain data.
-    loadData()
+    // After it closes, reload on-chain data. If an optimistic schedule is
+    // supplied, insert it into state immediately for responsive UI.
+    return async (optimistic) => {
+      if (optimistic) {
+        setSchedules((prev) => [optimistic, ...(prev ?? [])])
+      }
+      await loadData()
+    }
   }, [loadData])
 
   const handlePause = useCallback(
@@ -240,7 +246,7 @@ export default function Home() {
       <CreateSubscriptionModal
         open={createModalOpen}
         onClose={closeCreateModal}
-        onCreate={handleCreateSubscription}
+        onCreate={handleCreateSubscription()}
       />
     </div>
   )
