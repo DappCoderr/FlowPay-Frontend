@@ -22,26 +22,22 @@ export function Header() {
         <Logo />
 
         <nav className="hidden md:flex items-center gap-6">
-          {isConnected && (
-            <>
-              <NavLink
-                to="/"
-                className={({ isActive }) =>
-                  isActive ? 'text-sm font-medium text-white' : 'text-sm font-medium text-white/60 hover:text-white'
-                }
-              >
-                Home
-              </NavLink>
-              <NavLink
-                to="/about"
-                className={({ isActive }) =>
-                  isActive ? 'text-sm font-medium text-white' : 'text-sm font-medium text-white/60 hover:text-white'
-                }
-              >
-                About
-              </NavLink>
-            </>
-          )}
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              isActive ? 'text-sm font-medium text-white' : 'text-sm font-medium text-white/60 hover:text-white'
+            }
+          >
+            Home
+          </NavLink>
+          <NavLink
+            to="/about"
+            className={({ isActive }) =>
+              isActive ? 'text-sm font-medium text-white' : 'text-sm font-medium text-white/60 hover:text-white'
+            }
+          >
+            About
+          </NavLink>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -72,12 +68,12 @@ export function Header() {
       {mobileOpen && (
         <div className="md:hidden bg-black border-t border-white/10">
           <div className="max-w-7xl mx-auto px-6 py-3 flex flex-col gap-2">
-            {isConnected && (
-              <>
-                <NavLink to="/" className="text-sm font-medium text-white/80 hover:text-white py-2" onClick={() => setMobileOpen(false)}>Home</NavLink>
-                <NavLink to="/about" className="text-sm font-medium text-white/80 hover:text-white py-2" onClick={() => setMobileOpen(false)}>About</NavLink>
-              </>
-            )}
+            <NavLink to="/" className="text-sm font-medium text-white/80 hover:text-white py-2" onClick={() => setMobileOpen(false)}>
+              Home
+            </NavLink>
+            <NavLink to="/about" className="text-sm font-medium text-white/80 hover:text-white py-2" onClick={() => setMobileOpen(false)}>
+              About
+            </NavLink>
           </div>
         </div>
       )}
