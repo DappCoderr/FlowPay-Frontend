@@ -21,6 +21,8 @@ export default function Home() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [txStatus, setTxStatus] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortOrder, setSortOrder] = useState('nextPayoutAsc')
   const address = user?.addr
 
   const loadData = useCallback(async () => {
@@ -112,7 +114,31 @@ export default function Home() {
     [loadData]
   )
 
-  const hasSchedules = (schedules ?? []).length > 0
+  const filteredSchedules = useMemo(() => {
+    const all = schedules ?? []
+
+    const byStatus = all.filter((sub) => {
+      if (statusFilter === 'all') return true
+      const status = String(sub.status ?? '').toLowerCase()
+      if (statusFilter === 'active') return status === 'active' || status === 'pending'
+      return status === statusFilter
+    })
+
+    const sorted = [...byStatus].sort((a, b) => {
+      const aTime = Number(new Date(a.nextPayoutTime).getTime() || 0)
+      const bTime = Number(new Date(b.nextPayoutTime).getTime() || 0)
+
+      if (sortOrder === 'nextPayoutAsc') return aTime - bTime
+      if (sortOrder === 'nextPayoutDesc') return bTime - aTime
+      if (sortOrder === 'createdAsc') return (a.id ?? 0) - (b.id ?? 0)
+      if (sortOrder === 'createdDesc') return (b.id ?? 0) - (a.id ?? 0)
+      return 0
+    })
+
+    return sorted
+  }, [schedules, statusFilter, sortOrder])
+
+  const hasSchedules = filteredSchedules.length > 0
 
   const statusLabel = useCallback((status) => {
     // FlowPay.Status values map to UInt8; scripts return a rich struct
@@ -163,6 +189,38 @@ export default function Home() {
         </Card>
       </div>
 
+      <Card title="Filter & sort">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div>
+            <label className="block text-xs text-white/60">Status</label>
+            <select
+              className="bg-black/25 border border-white/10 rounded px-2 py-1 text-sm text-white"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-white/60">Sort by</label>
+            <select
+              className="bg-black/25 border border-white/10 rounded px-2 py-1 text-sm text-white"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+            >
+              <option value="nextPayoutAsc">Next payout ↑</option>
+              <option value="nextPayoutDesc">Next payout ↓</option>
+              <option value="createdAsc">Created ↑</option>
+              <option value="createdDesc">Created ↓</option>
+            </select>
+          </div>
+        </div>
+      </Card>
+
       {setupError && (
         <Card title="Setup error">
           <p className="text-sm text-red-400">
@@ -177,11 +235,11 @@ export default function Home() {
           <p className="text-sm text-white/60">Loading schedules from chain…</p>
         ) : !hasSchedules ? (
           <p className="text-sm text-white/60">
-            No on-chain subscriptions yet. Create one to schedule recurring payouts.
+            No subscriptions match the selected filters.
           </p>
         ) : (
           <ul className="space-y-3">
-            {schedules.map((sub) => (
+            {filteredSchedules.map((sub) => (
               <li
                 key={sub.id}
                 className="p-3 rounded-lg border border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-2"
