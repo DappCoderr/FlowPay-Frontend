@@ -3,7 +3,7 @@ import { useWallet } from '@/contexts/WalletContext'
 import { shortAddress } from '@/utils/format'
 import { Button } from '@/components/atoms'
 import { Card } from '@/components/molecules'
-import { CreateSubscriptionModal } from '@/components/organisms'
+import { CreateSubscriptionModal, SendFlowModal, ReceiveFlowModal } from '@/components/organisms'
 import { Plus } from 'lucide-react'
 import {
   getAllSchedulesForUser,
@@ -12,13 +12,17 @@ import {
   resumeFlowPaySchedule,
   cancelFlowPaySchedule,
   topUpFlowPaySchedule,
+  getFlowBalance,
 } from '@/flow/flowpay'
 
 export default function Home() {
   const { user, isSettingUp, setupError } = useWallet()
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [receiveModalOpen, setReceiveModalOpen] = useState(false)
   const [schedules, setSchedules] = useState([])
   const [stats, setStats] = useState(null)
+  const [balance, setBalance] = useState(null)
   const [loading, setLoading] = useState(false)
   const [txStatus, setTxStatus] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -29,12 +33,14 @@ export default function Home() {
     if (!address) return
     setLoading(true)
     try {
-      const [allSchedules, contractStats] = await Promise.all([
+      const [allSchedules, contractStats, userBalance] = await Promise.all([
         getAllSchedulesForUser(address),
         getFlowPayStats(),
+        getFlowBalance(address),
       ])
       setSchedules(allSchedules ?? [])
       setStats(contractStats ?? null)
+      setBalance(userBalance ?? null)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to load FlowPay data', err)
@@ -148,6 +154,10 @@ export default function Home() {
 
   const openCreateModal = useCallback(() => setCreateModalOpen(true), [])
   const closeCreateModal = useCallback(() => setCreateModalOpen(false), [])
+  const openSendModal = useCallback(() => setSendModalOpen(true), [])
+  const closeSendModal = useCallback(() => setSendModalOpen(false), [])
+  const openReceiveModal = useCallback(() => setReceiveModalOpen(true), [])
+  const closeReceiveModal = useCallback(() => setReceiveModalOpen(false), [])
 
   return (
     <div className="space-y-6">
@@ -172,6 +182,9 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card title="Account">
           <p className="text-sm text-white/70 font-mono break-all">{user?.addr ?? '—'}</p>
+          <p className="text-sm text-white/70 mt-2">
+            Balance: {balance ? `${Number(balance).toFixed(2)} FLOW` : '—'}
+          </p>
         </Card>
         <Card title="Flows & stats">
           <p className="text-sm text-white/70">
@@ -183,8 +196,22 @@ export default function Home() {
         </Card>
         <Card title="Quick Actions">
           <div className="flex gap-2">
-            <Button variant="primary" className="px-3 py-2 text-sm">Send</Button>
-            <Button variant="ghost" className="px-3 py-2 text-sm">Receive</Button>
+            <Button
+              variant="primary"
+              className="px-3 py-2 text-sm"
+              onClick={openSendModal}
+              disabled={!address}
+            >
+              Send
+            </Button>
+            <Button
+              variant="ghost"
+              className="px-3 py-2 text-sm"
+              onClick={openReceiveModal}
+              disabled={!address}
+            >
+              Receive
+            </Button>
           </div>
         </Card>
       </div>
@@ -305,6 +332,19 @@ export default function Home() {
         open={createModalOpen}
         onClose={closeCreateModal}
         onCreate={handleCreateSubscription()}
+      />
+
+      <SendFlowModal
+        open={sendModalOpen}
+        onClose={closeSendModal}
+        userAddress={address}
+        balance={balance}
+      />
+
+      <ReceiveFlowModal
+        open={receiveModalOpen}
+        onClose={closeReceiveModal}
+        userAddress={address}
       />
     </div>
   )

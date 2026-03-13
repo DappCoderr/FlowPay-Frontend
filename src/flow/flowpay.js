@@ -288,6 +288,41 @@ const SCRIPT_GET_STATS = `
   }
 `
 
+const TX_SEND_FLOW = `
+  import "FlowToken"
+  import "FungibleToken"
+
+  transaction(recipient: Address, amount: UFix64) {
+      prepare(signer: auth(Storage) &Account) {
+          let vaultRef = signer.storage
+              .borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(from: /storage/flowTokenVault)
+              ?? panic("Could not borrow signer's FlowToken vault")
+
+          let recipientRef = getAccount(recipient)
+              .capabilities.get<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+              .borrow()
+              ?? panic("Could not borrow recipient's FlowToken receiver")
+
+          let tokens <- vaultRef.withdraw(amount: amount)
+          recipientRef.deposit(from: <-tokens)
+      }
+  }
+`
+
+const SCRIPT_GET_FLOW_BALANCE = `
+  import "FlowToken"
+  import "FungibleToken"
+
+  access(all) fun main(address: Address): UFix64 {
+      let account = getAccount(address)
+      let vaultRef = account.capabilities
+          .get<&{FungibleToken.Balance}>(/public/flowTokenBalance)
+          .borrow()
+          ?? panic("Could not borrow FlowToken balance capability")
+      return vaultRef.balance
+  }
+`
+
 // --- Public JS helpers -----------------------------------------------------
 
 export async function setupFlowPayAccount(onStatus) {
@@ -454,6 +489,28 @@ export async function getFlowPayStats() {
   return fcl.query({
     cadence: SCRIPT_GET_STATS,
     args: () => [],
+  })
+}
+
+export async function sendFlowTokens(recipient, amountUFix64) {
+  const txId = await fcl.mutate({
+    cadence: TX_SEND_FLOW,
+    args: () => [
+      fcl.arg(recipient, fcl.t.Address),
+      fcl.arg(amountUFix64, fcl.t.UFix64),
+    ],
+    proposer: fcl.currentUser().authorization,
+    payer: fcl.currentUser().authorization,
+    authorizations: [fcl.currentUser().authorization],
+    limit: 9999,
+  })
+  return fcl.tx(txId).onceSealed()
+}
+
+export async function getFlowBalance(address) {
+  return fcl.query({
+    cadence: SCRIPT_GET_FLOW_BALANCE,
+    args: () => [fcl.arg(address, fcl.t.Address)],
   })
 }
 
