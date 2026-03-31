@@ -13,7 +13,7 @@ export function MainLayout({ children }) {
           {children}
         </div>
       </main>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }
