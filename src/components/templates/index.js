@@ -1,2 +1,2 @@
-export { MainLayout } from './MainLayout'
-export { LandingTemplate } from './LandingTemplate'
+export { MainLayout } from './MainLayout';
+export { LandingTemplate } from './LandingTemplate';

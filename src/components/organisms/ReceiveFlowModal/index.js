@@ -1,1 +1,1 @@
-export { ReceiveFlowModal } from './ReceiveFlowModal'
+export { ReceiveFlowModal } from './ReceiveFlowModal';

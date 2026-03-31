@@ -1,13 +1,13 @@
-import { useWallet } from '@/contexts/WalletContext'
-import { LandingTemplate } from '@/components/templates'
-import { HeroSection } from '@/components/organisms'
+import { useAuth } from '@/hooks';
+import { LandingTemplate } from '@/components/templates';
+import { HeroSection } from '@/components/organisms';
 
 export default function Landing() {
-  const { login } = useWallet()
+  const { connectWallet } = useAuth();
 
   return (
     <LandingTemplate>
-      <HeroSection onConnect={login} />
+      <HeroSection onConnect={connectWallet} />
     </LandingTemplate>
-  )
+  );
 }

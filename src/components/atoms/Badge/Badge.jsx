@@ -1,6 +1,3 @@
-/**
- * Atom: Badge / pill for labels and status.
- */
 export function Badge({ children, className = '', ...props }) {
   return (
     <span
@@ -9,5 +6,5 @@ export function Badge({ children, className = '', ...props }) {
     >
       {children}
     </span>
-  )
+  );
 }

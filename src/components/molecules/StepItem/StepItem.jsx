@@ -1,6 +1,3 @@
-/**
- * Molecule: Numbered step (number + title + description).
- */
 export function StepItem({ step, title, description }) {
   return (
     <li className="flex gap-4">
@@ -12,5 +9,5 @@ export function StepItem({ step, title, description }) {
         <p className="text-white/70 text-sm">{description}</p>
       </div>
     </li>
-  )
+  );
 }

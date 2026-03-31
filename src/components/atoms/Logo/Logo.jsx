@@ -1,8 +1,5 @@
 import { NavLink } from 'react-router-dom';
 
-/**
- * Atom: FlowPay logo mark + wordmark. Links to home.
- */
 export function Logo({ asLink = true, className = '' }) {
   const content = (
     <>

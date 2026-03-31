@@ -1,6 +1,9 @@
-import path from 'path'
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,13 +15,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor'
-          if (id.includes('node_modules/@onflow/')) return 'fcl'
-          if (id.includes('node_modules/react-router')) return 'router'
-          if (id.includes('node_modules/lucide-react')) return 'lucide'
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/')
+          )
+            return 'react-vendor';
+          if (id.includes('node_modules/@onflow/')) return 'fcl';
+          if (id.includes('node_modules/react-router')) return 'router';
+          if (id.includes('node_modules/lucide-react')) return 'lucide';
         },
       },
     },
     chunkSizeWarningLimit: 600,
   },
-})
+});

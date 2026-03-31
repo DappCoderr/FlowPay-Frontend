@@ -1,351 +1,206 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useWallet } from '@/contexts/WalletContext'
-import { shortAddress } from '@/utils/format'
-import { Button } from '@/components/atoms'
-import { Card } from '@/components/molecules'
-import { CreateSubscriptionModal, SendFlowModal, ReceiveFlowModal } from '@/components/organisms'
-import { Plus } from 'lucide-react'
+import { useState, useCallback } from 'react';
+import { useAuth, useCheckHandlerInit } from '@/hooks';
+import { shortAddress } from '@/utils/format';
+import { Button } from '@/components/atoms';
+import { Card } from '@/components/molecules';
 import {
-  getAllSchedulesForUser,
-  getFlowPayStats,
-  pauseFlowPaySchedule,
-  resumeFlowPaySchedule,
-  cancelFlowPaySchedule,
-  topUpFlowPaySchedule,
-  getFlowBalance,
-} from '@/flow/flowpay'
+  StreamAnalytics,
+  CreateStreamModal,
+  SendFlowModal,
+  ReceiveFlowModal,
+  HandlerSetup,
+} from '@/components/organisms';
+import { Plus } from 'lucide-react';
 
+/**
+ * Home Page
+ * Main dashboard for FlowPay users
+ * Features:
+ * - Wallet connection & balance display
+ * - Create new payment streams
+ * - View and manage existing streams
+ * - Creator analytics
+ * - Send/Receive FLOW tokens
+ */
 export default function Home() {
-  const { user, isSettingUp, setupError } = useWallet()
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [sendModalOpen, setSendModalOpen] = useState(false)
-  const [receiveModalOpen, setReceiveModalOpen] = useState(false)
-  const [schedules, setSchedules] = useState([])
-  const [stats, setStats] = useState(null)
-  const [balance, setBalance] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [txStatus, setTxStatus] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [sortOrder, setSortOrder] = useState('nextPayoutAsc')
-  const address = user?.addr
+  const { user, balance, isLoading } = useAuth();
+  const { isInitialized, isChecking } = useCheckHandlerInit(user?.addr);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [receiveModalOpen, setReceiveModalOpen] = useState(false);
+  const [setupRefresh, setSetupRefresh] = useState(0);
+  const address = user?.addr;
 
-  const loadData = useCallback(async () => {
-    if (!address) return
-    setLoading(true)
-    try {
-      const [allSchedules, contractStats, userBalance] = await Promise.all([
-        getAllSchedulesForUser(address),
-        getFlowPayStats(),
-        getFlowBalance(address),
-      ])
-      setSchedules(allSchedules ?? [])
-      setStats(contractStats ?? null)
-      setBalance(userBalance ?? null)
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to load FlowPay data', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [address])
+  const openCreateModal = useCallback(() => setCreateModalOpen(true), []);
+  const closeCreateModal = useCallback(() => {
+    setCreateModalOpen(false);
+  }, []);
+  const openSendModal = useCallback(() => setSendModalOpen(true), []);
+  const closeSendModal = useCallback(() => setSendModalOpen(false), []);
+  const openReceiveModal = useCallback(() => setReceiveModalOpen(true), []);
+  const closeReceiveModal = useCallback(() => setReceiveModalOpen(false), []);
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  const handleSetupComplete = useCallback(() => {
+    // Force re-check handler initialization after setup
+    setSetupRefresh((prev) => prev + 1);
+  }, []);
 
-  const handleCreateSubscription = useCallback(() => {
-    // The modal will handle submitting the transaction via FCL.
-    // After it closes, reload on-chain data. If an optimistic schedule is
-    // supplied, insert it into state immediately for responsive UI.
-    return async (optimistic) => {
-      if (optimistic) {
-        setSchedules((prev) => [optimistic, ...(prev ?? [])])
-      }
-      await loadData()
-    }
-  }, [loadData])
+  if (isLoading || isChecking) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-10 bg-white/10 rounded w-1/4" />
+          <div className="h-32 bg-white/10 rounded" />
+          <div className="h-64 bg-white/10 rounded" />
+        </div>
+      </div>
+    );
+  }
 
-  const handlePause = useCallback(
-    async (id) => {
-      setTxStatus('Pausing schedule...')
-      try {
-        await pauseFlowPaySchedule(id)
-        await loadData()
-      } finally {
-        setTxStatus(null)
-      }
-    },
-    [loadData]
-  )
-
-  const handleResume = useCallback(
-    async (id) => {
-      setTxStatus('Resuming schedule...')
-      try {
-        await resumeFlowPaySchedule(id)
-        await loadData()
-      } finally {
-        setTxStatus(null)
-      }
-    },
-    [loadData]
-  )
-
-  const handleCancel = useCallback(
-    async (id) => {
-      setTxStatus('Cancelling schedule...')
-      try {
-        await cancelFlowPaySchedule(id)
-        await loadData()
-      } finally {
-        setTxStatus(null)
-      }
-    },
-    [loadData]
-  )
-
-  const handleTopUp = useCallback(
-    async (id) => {
-      const amount = window.prompt('Enter top-up amount (UFix64, e.g. 10.0)')
-      if (!amount) return
-      setTxStatus('Topping up schedule...')
-      try {
-        // Pass string like '10.0' directly; helper expects UFix64 literal.
-        await topUpFlowPaySchedule(id, amount)
-        await loadData()
-      } finally {
-        setTxStatus(null)
-      }
-    },
-    [loadData]
-  )
-
-  const filteredSchedules = useMemo(() => {
-    const all = schedules ?? []
-
-    const byStatus = all.filter((sub) => {
-      if (statusFilter === 'all') return true
-      const status = String(sub.status ?? '').toLowerCase()
-      if (statusFilter === 'active') return status === 'active' || status === 'pending'
-      return status === statusFilter
-    })
-
-    const sorted = [...byStatus].sort((a, b) => {
-      const aTime = Number(new Date(a.nextPayoutTime).getTime() || 0)
-      const bTime = Number(new Date(b.nextPayoutTime).getTime() || 0)
-
-      if (sortOrder === 'nextPayoutAsc') return aTime - bTime
-      if (sortOrder === 'nextPayoutDesc') return bTime - aTime
-      if (sortOrder === 'createdAsc') return (a.id ?? 0) - (b.id ?? 0)
-      if (sortOrder === 'createdDesc') return (b.id ?? 0) - (a.id ?? 0)
-      return 0
-    })
-
-    return sorted
-  }, [schedules, statusFilter, sortOrder])
-
-  const hasSchedules = filteredSchedules.length > 0
-
-  const statusLabel = useCallback((status) => {
-    // FlowPay.Status values map to UInt8; scripts return a rich struct
-    if (typeof status === 'string') return status
-    return String(status)
-  }, [])
-
-  const openCreateModal = useCallback(() => setCreateModalOpen(true), [])
-  const closeCreateModal = useCallback(() => setCreateModalOpen(false), [])
-  const openSendModal = useCallback(() => setSendModalOpen(true), [])
-  const closeSendModal = useCallback(() => setSendModalOpen(false), [])
-  const openReceiveModal = useCallback(() => setReceiveModalOpen(true), [])
-  const closeReceiveModal = useCallback(() => setReceiveModalOpen(false), [])
+  // Show setup if handler not initialized
+  if (!isInitialized && isInitialized !== null) {
+    return (
+      <div className="space-y-6 lg:space-y-8">
+        <div className="col-span-full">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">Welcome to FlowPay</h1>
+          <p className="text-white/60 text-sm md:text-base">
+            Let's set up your account to start creating payment streams
+          </p>
+        </div>
+        <div className="grid grid-cols-12 gap-6 lg:gap-8">
+          <div className="col-span-12 lg:col-span-8 lg:col-start-3">
+            <HandlerSetup 
+              userAddress={address} 
+              onComplete={handleSetupComplete}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-white/60">
-            {user?.addr ? `Connected: ${shortAddress(user.addr)}` : 'Not connected'}
-          </span>
-          <Button
-            variant="primary"
-            className="text-sm px-4 py-2"
-            onClick={openCreateModal}
-            disabled={!address || isSettingUp}
-          >
-            <Plus className="w-4 h-4" />
-            {isSettingUp ? 'Setting up FlowPay…' : 'Create subscription'}
+    <div className="space-y-8 lg:space-y-10">
+      {/* Header Section - Full Width */}
+      <div className="grid grid-cols-12 gap-6 lg:gap-8 items-start mb-2">
+        <div className="col-span-12 lg:col-span-8">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-3">Dashboard</h1>
+          <p className="text-white/60 text-base md:text-lg leading-relaxed">
+            Manage your payment streams and view analytics
+          </p>
+        </div>
+        <div className="col-span-12 lg:col-span-4 flex gap-2 sm:gap-3">
+          <Button variant="primary" size="lg" onClick={openCreateModal} className="flex-1 sm:flex-none">
+            <Plus className="w-5 h-5 mr-2" />
+            <span className="hidden sm:inline">Create Stream</span>
+            <span className="sm:hidden">Create</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card title="Account">
-          <p className="text-sm text-white/70 font-mono break-all">{user?.addr ?? '—'}</p>
-          <p className="text-sm text-white/70 mt-2">
-            Balance: {balance ? `${Number(balance).toFixed(2)} FLOW` : '—'}
-          </p>
-        </Card>
-        <Card title="Flows & stats">
-          <p className="text-sm text-white/70">
-            Total schedules: {stats?.totalSchedulesCreated ?? '—'}
-          </p>
-          <p className="text-sm text-white/70">
-            Total payouts executed: {stats?.totalPayoutsExecuted ?? '—'}
-          </p>
-        </Card>
-        <Card title="Quick Actions">
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              className="px-3 py-2 text-sm"
-              onClick={openSendModal}
-              disabled={!address}
+      {/* User Info Cards - 12 Column Grid */}
+      <div className="grid grid-cols-12 gap-4 md:gap-6 mb-8">
+        {/* Account Card - 12/4 cols */}
+        <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+          <Card
+            title="Connected Account"
+            className="bg-white/3 border border-white/10 h-full shadow-lg hover:shadow-xl transition-all"
+          >
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-white/60 uppercase tracking-wide mb-2 font-medium">
+                  Address
+                </p>
+                <p className="text-sm font-mono text-white break-all">
+                  {address ? shortAddress(address) : 'Not connected'}
+                </p>
+              </div>
+              <div className="pt-3 border-t border-white/10">
+                <p className="text-xs text-white/60 uppercase tracking-wide mb-2 font-medium">
+                  FLOW Balance
+                </p>
+                <p
+                  className={`text-3xl font-bold ${isLoading ? 'text-white/40' : 'text-cyan-400'}`}
+                >
+                  {balance ? parseFloat(balance).toFixed(2) : '—'}
+                  <span className="text-lg text-white/60 ml-2">FLOW</span>
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Quick Actions Card - 12/4 cols */}
+        <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+          <Card
+            title="Quick Actions"
+            className="bg-white/3 border border-white/10 h-full shadow-lg hover:shadow-xl transition-all"
+          >
+            <div className="space-y-2.5">
+              <Button
+                onClick={openSendModal}
+                className="w-full justify-center"
+                variant="secondary"
+                size="sm"
+              >
+                Send FLOW
+              </Button>
+              <Button
+                onClick={openReceiveModal}
+                className="w-full justify-center"
+                variant="secondary"
+                size="sm"
+              >
+                Receive FLOW
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Help Card - 12/4 cols */}
+        <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+          <Card
+            title="Need Help?"
+            className="bg-linear-to-br from-blue-500/10 to-white/0 border border-blue-500/20 h-full shadow-lg hover:shadow-xl transition-all"
+          >
+            <p className="text-sm text-white/80 mb-4 leading-relaxed">
+              Learn how FlowPay works and how to create payment streams.
+            </p>
+            <a
+              href="/faq"
+              className="text-sm font-semibold text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center group"
             >
-              Send
-            </Button>
-            <Button
-              variant="ghost"
-              className="px-3 py-2 text-sm"
-              onClick={openReceiveModal}
-              disabled={!address}
-            >
-              Receive
-            </Button>
-          </div>
-        </Card>
+              View FAQ
+              <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+            </a>
+          </Card>
+        </div>
       </div>
 
-      <Card title="Filter & sort">
-        <div className="flex flex-wrap gap-3 items-center">
-          <div>
-            <label className="block text-xs text-white/60">Status</label>
-            <select
-              className="bg-black/25 border border-white/10 rounded px-2 py-1 text-sm text-white"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-white/60">Sort by</label>
-            <select
-              className="bg-black/25 border border-white/10 rounded px-2 py-1 text-sm text-white"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-            >
-              <option value="nextPayoutAsc">Next payout ↑</option>
-              <option value="nextPayoutDesc">Next payout ↓</option>
-              <option value="createdAsc">Created ↑</option>
-              <option value="createdDesc">Created ↓</option>
-            </select>
-          </div>
+      {/* Creator Analytics - Full Width */}
+      {address && (
+        <div className="col-span-full">
+          <StreamAnalytics creatorAddress={address} />
         </div>
-      </Card>
-
-      {setupError && (
-        <Card title="Setup error">
-          <p className="text-sm text-red-400">
-            FlowPay account setup failed: {setupError}. You may need a FlowToken vault and storage
-            before using FlowPay.
-          </p>
-        </Card>
       )}
 
-      <Card title="Your subscriptions">
-        {loading ? (
-          <p className="text-sm text-white/60">Loading schedules from chain…</p>
-        ) : !hasSchedules ? (
-          <p className="text-sm text-white/60">
-            No subscriptions match the selected filters.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {filteredSchedules.map((sub) => (
-              <li
-                key={sub.id}
-                className="p-3 rounded-lg border border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-2"
-              >
-                <div className="space-y-1">
-                  <span className="font-medium text-white">
-                    {sub.label || `Schedule #${sub.id}`}
-                  </span>
-                  <span className="text-white/60 ml-2">
-                    {sub.totalPerPayout ?? sub.amountPerPayout} FLOW total per payout ·{' '}
-                    {(sub.recipients ?? []).length || 1} recipient(s) ·{' '}
-                    {sub.completedPayouts}/{sub.totalPayouts} payouts
-                  </span>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-xs text-white/50">
-                    Status: {statusLabel(sub.status)} · Next at {sub.nextPayoutTime}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={() => handlePause(sub.id)}
-                    >
-                      Pause
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={() => handleResume(sub.id)}
-                    >
-                      Resume
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={() => handleTopUp(sub.id)}
-                    >
-                      Top up
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs text-red-400"
-                      onClick={() => handleCancel(sub.id)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card title="Recent Activity">
-        <p className="text-sm text-white/60">
-          {txStatus || 'No activity yet — create or manage a subscription to see updates.'}
-        </p>
-      </Card>
-
-      <CreateSubscriptionModal
+      {/* Modals */}
+      <CreateStreamModal
         open={createModalOpen}
         onClose={closeCreateModal}
-        onCreate={handleCreateSubscription()}
+        userAddress={address}
       />
-
       <SendFlowModal
         open={sendModalOpen}
         onClose={closeSendModal}
         userAddress={address}
         balance={balance}
       />
-
       <ReceiveFlowModal
         open={receiveModalOpen}
         onClose={closeReceiveModal}
         userAddress={address}
       />
     </div>
-  )
+  );
 }

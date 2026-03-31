@@ -1,1 +1,1 @@
-export { StepItem } from './StepItem'
+export { StepItem } from './StepItem';

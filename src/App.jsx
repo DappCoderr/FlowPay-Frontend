@@ -1,17 +1,17 @@
-import { WalletProvider, useWallet } from '@/contexts/WalletContext'
-import { UIProvider } from '@/contexts/UIContext'
-import { AppRoutes } from '@/router'
-import { MainLayout } from '@/components/templates'
+import { WalletProvider, useWallet } from '@/contexts/WalletContext';
+import { UIProvider } from '@/contexts/UIContext';
+import { AppRoutes } from '@/router';
+import { MainLayout } from '@/components/templates';
 
 function AppContent() {
-  const { user } = useWallet()
-  const isConnected = !!(user?.addr)
+  const { user, isLoading } = useWallet();
+  const isConnected = !!user?.addr;
 
   return (
     <MainLayout>
-      <AppRoutes isConnected={isConnected} />
+      <AppRoutes isConnected={isConnected} isLoading={isLoading} />
     </MainLayout>
-  )
+  );
 }
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
         <AppContent />
       </UIProvider>
     </WalletProvider>
-  )
+  );
 }
 
-export default App
+export default App;

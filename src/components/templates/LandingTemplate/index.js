@@ -1,1 +1,1 @@
-export { LandingTemplate } from './LandingTemplate'
+export { LandingTemplate } from './LandingTemplate';

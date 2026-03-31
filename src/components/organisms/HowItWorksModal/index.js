@@ -1,1 +1,1 @@
-export { HowItWorksModal } from './HowItWorksModal'
+export { HowItWorksModal } from './HowItWorksModal';

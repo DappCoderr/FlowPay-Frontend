@@ -1,1 +1,1 @@
-export { SendFlowModal } from './SendFlowModal'
+export { SendFlowModal } from './SendFlowModal';

@@ -1,1 +1,1 @@
-export { IconLabel } from './IconLabel'
+export { IconLabel } from './IconLabel';

@@ -1,30 +1,30 @@
-import { useState, useCallback } from 'react'
-import { Copy, Check } from 'lucide-react'
-import { Modal } from '@/components/molecules'
-import { Button } from '@/components/atoms'
+import { useState, useCallback } from 'react';
+import { Copy, Check } from 'lucide-react';
+import { Modal } from '@/components/molecules';
+import { Button } from '@/components/atoms';
 
 export function ReceiveFlowModal({ open, onClose, userAddress }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    if (!userAddress) return
+    if (!userAddress) return;
 
     try {
-      await navigator.clipboard.writeText(userAddress)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
+      await navigator.clipboard.writeText(userAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea')
-      textArea.value = userAddress
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      const textArea = document.createElement('textarea');
+      textArea.value = userAddress;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-  }, [userAddress])
+  }, [userAddress]);
 
   return (
     <Modal open={open} onClose={onClose} title="Receive FLOW">
@@ -35,7 +35,9 @@ export function ReceiveFlowModal({ open, onClose, userAddress }) {
           </p>
 
           <div className="p-4 rounded-lg border border-white/20 bg-white/5">
-            <p className="text-sm font-mono break-all text-white mb-4">{userAddress}</p>
+            <p className="text-sm font-mono break-all text-white mb-4">
+              {userAddress}
+            </p>
 
             <Button
               variant="secondary"
@@ -70,5 +72,5 @@ export function ReceiveFlowModal({ open, onClose, userAddress }) {
         </div>
       </div>
     </Modal>
-  )
+  );
 }
