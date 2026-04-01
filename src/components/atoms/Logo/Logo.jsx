@@ -1,11 +1,10 @@
 import { NavLink } from 'react-router-dom';
+import FlowLogoUI from '../../../assets/FlowLogo-UI.png';
 
 export function Logo({ asLink = true, className = '' }) {
   const content = (
     <>
-      <div className="w-10 h-10 bg-white text-black rounded-md flex items-center justify-center font-bold shrink-0">
-        FP
-      </div>
+      <img src={FlowLogoUI} alt="FlowPay Logo" className="w-16 h-16 shrink-0" />
       <div className="leading-tight">
         <span className="text-xl font-semibold text-white block">FlowPay</span>
         <span className="text-xs text-white/50 block">Payments on Flow</span>
