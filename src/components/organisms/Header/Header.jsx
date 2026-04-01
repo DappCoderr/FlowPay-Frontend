@@ -3,7 +3,14 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useWallet } from '@/contexts/WalletContext';
 import { shortAddress } from '@/utils/format';
 import { Logo, Button } from '@/components/atoms';
+import { Menu, X } from 'lucide-react';
 
+/**
+ * Enhanced Header Component
+ * - Better mobile responsive design
+ * - Smooth animations
+ * - Premium styling
+ */
 export function Header() {
   const navigate = useNavigate();
   const { user, login, logout } = useWallet();
@@ -16,124 +23,115 @@ export function Header() {
     navigate('/', { replace: true });
   }, [logout, navigate]);
 
+  const navLink = ({ isActive }) =>
+    `text-sm font-medium transition-colors duration-200 ${
+      isActive
+        ? 'text-white font-semibold'
+        : 'text-white/60 hover:text-white'
+    }`;
+
   return (
-    <header className="bg-black border-b border-white/10 backdrop-blur-lg sticky top-0 z-40 shadow-lg\">
-      <div className="max-w-7xl mx-auto py-4 px-6 flex justify-between items-center">
-        <Logo />
+    <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="h-16 sm:h-20 flex justify-between items-center">
+          {/* Logo */}
+          <div className="flex-shrink-0">
+            <Logo />
+          </div>
 
-        <nav className="hidden md:flex items-center gap-6">
-          {isConnected && (
-            <>
-              <NavLink
-                to="/"
-                className={({ isActive }) =>
-                  isActive
-                    ? 'text-sm font-medium text-white'
-                    : 'text-sm font-medium text-white/60 hover:text-white transition-colors'
-                }
-              >
-                Home
-              </NavLink>
-              <NavLink
-                to="/history"
-                className={({ isActive }) =>
-                  isActive
-                    ? 'text-sm font-medium text-white'
-                    : 'text-sm font-medium text-white/60 hover:text-white transition-colors'
-                }
-              >
-                History
-              </NavLink>
-              <NavLink
-                to="/about"
-                className={({ isActive }) =>
-                  isActive
-                    ? 'text-sm font-medium text-white'
-                    : 'text-sm font-medium text-white/60 hover:text-white transition-colors'
-                }
-              >
-                About
-              </NavLink>
-            </>
-          )}
-          <NavLink
-            to="/faq"
-            className={({ isActive }) =>
-              isActive
-                ? 'text-sm font-medium text-white'
-                : 'text-sm font-medium text-white/60 hover:text-white transition-colors'
-            }
-          >
-            FAQ
-          </NavLink>
-        </nav>
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-8 mx-auto">
+            {isConnected && (
+              <>
+                <NavLink to="/" className={navLink}>
+                  Home
+                </NavLink>
+                <NavLink to="/history" className={navLink}>
+                  History
+                </NavLink>
+                <NavLink to="/about" className={navLink}>
+                  About
+                </NavLink>
+              </>
+            )}
+            <NavLink to="/faq" className={navLink}>
+              FAQ
+            </NavLink>
+          </nav>
 
-        <div className="flex items-center gap-3">
-          {isConnected ? (
-            <>
-              <span className="hidden sm:inline-block text-sm text-white/70">
-                {shortAddress(user.addr)}
-              </span>
-              <Button variant="ghost" onClick={handleDisconnect}>
-                Disconnect
+          {/* Desktop Auth */}
+          <div className="hidden sm:flex items-center gap-4">
+            {isConnected ? (
+              <>
+                <span className="hidden md:inline-block text-sm text-white/70 px-3 py-2 rounded-lg bg-white/5">
+                  {shortAddress(user.addr)}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleDisconnect}
+                >
+                  Disconnect
+                </Button>
+              </>
+            ) : (
+              <Button variant="primary" size="sm" onClick={login}>
+                Connect Wallet
               </Button>
-            </>
-          ) : (
-            <Button
-              variant="primary"
-              onClick={login}
-              className="text-sm px-3 py-1.5"
-            >
-              Connect
-            </Button>
-          )}
+            )}
+          </div>
 
-          <Button
-            variant="icon"
-            className="md:hidden text-white/80"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label="Menu"
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+            aria-label="Toggle menu"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </Button>
+            {mobileOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-black border-t border-white/10">
-          <div className="max-w-7xl mx-auto px-6 py-3 flex flex-col gap-2">
+        <div className="md:hidden border-t border-white/10 bg-black/50 backdrop-blur-xl animate-slide-up">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-3">
+            {/* Navigation Links */}
             {isConnected && (
               <>
                 <NavLink
                   to="/"
-                  className="text-sm font-medium text-white/80 hover:text-white py-2 transition-colors"
+                  className={`block px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/'
+                      ? 'bg-white/10 text-white font-semibold'
+                      : 'text-white/70 hover:bg-white/5'
+                  }`}
                   onClick={() => setMobileOpen(false)}
                 >
                   Home
                 </NavLink>
                 <NavLink
                   to="/history"
-                  className="text-sm font-medium text-white/80 hover:text-white py-2 transition-colors"
+                  className={`block px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/history'
+                      ? 'bg-white/10 text-white font-semibold'
+                      : 'text-white/70 hover:bg-white/5'
+                  }`}
                   onClick={() => setMobileOpen(false)}
                 >
                   History
                 </NavLink>
                 <NavLink
                   to="/about"
-                  className="text-sm font-medium text-white/80 hover:text-white py-2 transition-colors"
+                  className={`block px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/about'
+                      ? 'bg-white/10 text-white font-semibold'
+                      : 'text-white/70 hover:bg-white/5'
+                  }`}
                   onClick={() => setMobileOpen(false)}
                 >
                   About
@@ -142,11 +140,47 @@ export function Header() {
             )}
             <NavLink
               to="/faq"
-              className="text-sm font-medium text-white/80 hover:text-white py-2 transition-colors"
+              className={`block px-4 py-2 rounded-lg transition-colors ${
+                location.pathname === '/faq'
+                  ? 'bg-white/10 text-white font-semibold'
+                  : 'text-white/70 hover:bg-white/5'
+              }`}
               onClick={() => setMobileOpen(false)}
             >
               FAQ
             </NavLink>
+
+            {/* Divider */}
+            <div className="border-t border-white/10 my-3" />
+
+            {/* Account Section */}
+            {isConnected ? (
+              <>
+                <div className="px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-xs text-white/60 mb-1">Connected As</p>
+                  <p className="text-sm font-mono text-white break-all">
+                    {shortAddress(user.addr)}
+                  </p>
+                </div>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  className="w-full justify-center"
+                >
+                  Disconnect
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={login}
+                className="w-full justify-center"
+              >
+                Connect Wallet
+              </Button>
+            )}
           </div>
         </div>
       )}
